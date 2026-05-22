@@ -24,17 +24,26 @@ function isMobile() {
   );
 }
 
-function waitForImages(root) {
+// 이미지를 로드 + 메모리에 강제 디코딩.
+// iOS Safari는 화면에 안 보이는 이미지를 메모리에서 해제하기 때문에,
+// html-to-image의 toBlob 시점에 이미지가 빈 상태로 캔버스에 그려질 수 있음.
+// img.decode()로 직전 강제 디코딩하면 toBlob이 항상 그릴 데이터를 보장.
+async function waitForImages(root) {
   const imgs = Array.from(root.querySelectorAll('img'));
-  return Promise.all(
-    imgs.map((img) =>
-      img.complete && img.naturalWidth > 0
-        ? Promise.resolve()
-        : new Promise((resolve) => {
-            img.addEventListener('load', resolve, { once: true });
-            img.addEventListener('error', resolve, { once: true });
-          })
-    )
+  await Promise.all(
+    imgs.map(async (img) => {
+      if (!img.complete || !img.naturalWidth) {
+        await new Promise((resolve) => {
+          img.addEventListener('load', resolve, { once: true });
+          img.addEventListener('error', resolve, { once: true });
+        });
+      }
+      try {
+        await img.decode?.();
+      } catch {
+        /* decode 실패는 무시 */
+      }
+    })
   );
 }
 
@@ -111,17 +120,23 @@ export default function ResultCard({ result, answers, onRestart }) {
     const wasRevealed = easterRevealed;
     if (faceMatch && !wasRevealed) setEasterRevealed(true);
 
-    // 가능한 빠르게 — iOS Safari의 user gesture window를 넘기면 share API가 막힘
     await new Promise((r) => setTimeout(r, 40));
+    // 이미지 강제 디코딩 — iOS Safari가 GC한 이미지를 다시 메모리에 올림
     await waitForImages(cardRef.current);
 
     const { toBlob } = await import('html-to-image');
+    const opts = {
+      cacheBust: false, // 이미 디코딩된 캐시 이미지 재사용
+      backgroundColor: '#0a0e1a',
+    };
     try {
-      const blob = await toBlob(cardRef.current, {
-        pixelRatio: 2,
-        cacheBust: false,
-        backgroundColor: '#0a0e1a',
-      });
+      // 워밍업 1회 — iOS Safari 캔버스 안정화
+      await toBlob(cardRef.current, { ...opts, pixelRatio: 1 });
+      await new Promise((r) => setTimeout(r, 30));
+      // 디코딩 한 번 더 (워밍업으로 인한 메모리 변화 대응)
+      await waitForImages(cardRef.current);
+      // 본 캡처
+      const blob = await toBlob(cardRef.current, { ...opts, pixelRatio: 2 });
       return blob;
     } finally {
       if (illustration) {
