@@ -19,7 +19,9 @@ import { defaultResultCopy, generateResultCopy } from '../utils/claudeApi.js';
 
 function isMobile() {
   if (typeof navigator === 'undefined') return false;
-  return /Android|webOS|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+  return /Android|webOS|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
+    navigator.userAgent
+  );
 }
 
 function waitForImages(root) {
@@ -31,8 +33,8 @@ function waitForImages(root) {
         : new Promise((resolve) => {
             img.addEventListener('load', resolve, { once: true });
             img.addEventListener('error', resolve, { once: true });
-          }),
-    ),
+          })
+    )
   );
 }
 
@@ -40,8 +42,12 @@ export default function ResultCard({ result, answers, onRestart }) {
   const { faceMatch, styleMatch, isPerfectMatch, userPhotoUrl } = result;
   const nickname = TYPE_NICKNAME[styleMatch.type] || '월드컵의 별';
   const theme = TYPE_THEME[styleMatch.type] || TYPE_THEME.midfielder;
-  const heroGradient = COUNTRY_THEME[styleMatch.player.country] || theme.gradient;
-  const hashtags = useMemo(() => getFunHashtags(styleMatch.player), [styleMatch.player]);
+  const heroGradient =
+    COUNTRY_THEME[styleMatch.player.country] || theme.gradient;
+  const hashtags = useMemo(
+    () => getFunHashtags(styleMatch.player),
+    [styleMatch.player]
+  );
   const cardRef = useRef(null);
   const [busy, setBusy] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -55,12 +61,13 @@ export default function ResultCard({ result, answers, onRestart }) {
 
   const abilities = useMemo(
     () => computeAbilities(answers.map((a) => a.type)),
-    [answers],
+    [answers]
   );
 
   const fallbackCopy = useMemo(
-    () => defaultResultCopy({ faceMatch, styleMatch, nickname, isPerfectMatch }),
-    [faceMatch, styleMatch, nickname, isPerfectMatch],
+    () =>
+      defaultResultCopy({ faceMatch, styleMatch, nickname, isPerfectMatch }),
+    [faceMatch, styleMatch, nickname, isPerfectMatch]
   );
   const [copy, setCopy] = useState(fallbackCopy);
   const [loadingCopy, setLoadingCopy] = useState(false);
@@ -90,25 +97,31 @@ export default function ResultCard({ result, answers, onRestart }) {
 
   const captureImage = async () => {
     if (!cardRef.current) return null;
-    // 이스터에그를 캡처 시 펼쳐서 함께 담기
+
+    // 캡처 모드 ON — CSS mask-image 등 html-to-image 비호환 효과 비활성화
+    cardRef.current.dataset.capturing = 'true';
     const wasRevealed = easterRevealed;
     if (faceMatch && !wasRevealed) setEasterRevealed(true);
     await new Promise((r) => setTimeout(r, 30));
     await waitForImages(cardRef.current);
     await new Promise((r) => setTimeout(r, 80));
     const { toBlob } = await import('html-to-image');
-    await toBlob(cardRef.current, {
-      pixelRatio: 1,
-      cacheBust: false,
-      backgroundColor: '#0a0e1a',
-    });
-    const blob = await toBlob(cardRef.current, {
-      pixelRatio: 2,
-      cacheBust: false,
-      backgroundColor: '#0a0e1a',
-    });
-    if (!wasRevealed) setEasterRevealed(false);
-    return blob;
+    try {
+      await toBlob(cardRef.current, {
+        pixelRatio: 1,
+        cacheBust: false,
+        backgroundColor: '#0a0e1a',
+      });
+      const blob = await toBlob(cardRef.current, {
+        pixelRatio: 2,
+        cacheBust: false,
+        backgroundColor: '#0a0e1a',
+      });
+      return blob;
+    } finally {
+      if (cardRef.current) delete cardRef.current.dataset.capturing;
+      if (!wasRevealed) setEasterRevealed(false);
+    }
   };
 
   const downloadBlob = (blob, filename) => {
@@ -169,7 +182,9 @@ export default function ResultCard({ result, answers, onRestart }) {
         }
       }
       downloadBlob(blob, filename);
-      alert('이 기기에서는 직접 공유가 안 돼서 이미지로 저장했어요. 사진앱에서 인스타 스토리로 올려보세요!');
+      alert(
+        '이 기기에서는 직접 공유가 안 돼서 이미지로 저장했어요. 사진앱에서 인스타 스토리로 올려보세요!'
+      );
     } catch (e) {
       alert('공유 실패: ' + (e.message || e));
     } finally {
@@ -182,7 +197,9 @@ export default function ResultCard({ result, answers, onRestart }) {
       <div className="result-card" ref={cardRef}>
         {/* ===== HERO 캐릭터 카드 ===== */}
         <div className="hero-card" style={{ background: heroGradient }}>
-          <div className="hero-card-watermark">{styleMatch.player.countryFlag}</div>
+          <div className="hero-card-watermark">
+            {styleMatch.player.countryFlag}
+          </div>
 
           {/* AI 일러스트 (있는 선수만 자동 등장) */}
           <PlayerIllustration
@@ -193,11 +210,16 @@ export default function ResultCard({ result, answers, onRestart }) {
 
           <h1 className="hero-card-nickname">"{nickname}"</h1>
           <div className="hero-card-player-line">
-            {styleMatch.player.country} 국대 <b>{styleMatch.player.name}</b> 타입
+            {styleMatch.player.country} 국대 <b>{styleMatch.player.name}</b>{' '}
+            타입
           </div>
 
           {/* 실제 선수 사진 — 일러스트 있으면 검증용 작은 원, 없으면 메인 비주얼 */}
-          <div className={`hero-card-character ${hasIllustration ? 'is-small' : 'is-large'}`}>
+          <div
+            className={`hero-card-character ${
+              hasIllustration ? 'is-small' : 'is-large'
+            }`}
+          >
             <PlayerAvatar
               player={styleMatch.player}
               size={hasIllustration ? 'md' : 'hero'}
@@ -229,7 +251,9 @@ export default function ResultCard({ result, answers, onRestart }) {
         {/* ===== 카피 ===== */}
         <div className="result-analysis-label">✨ 당신을 위한 스페셜 분석</div>
         <p className="result-description">
-          {loadingCopy && copy === fallbackCopy ? '결과 설명을 만드는 중...' : copy}
+          {loadingCopy && copy === fallbackCopy
+            ? '결과 설명을 만드는 중...'
+            : copy}
         </p>
 
         {/* ===== 이스터에그 (탭하면 펼쳐짐) ===== */}
@@ -241,11 +265,11 @@ export default function ResultCard({ result, answers, onRestart }) {
           >
             <div className="easter-egg-head">
               <span className="easter-egg-icon">🔮</span>
-              <span className="easter-egg-title">
-                내 관상 속 숨겨진 닮은꼴 선수
-              </span>
+              <span className="easter-egg-title">숨겨진 닮은꼴 선수</span>
               <span
-                className={`easter-egg-cta ${easterRevealed ? '' : 'easter-egg-cta-pulse'}`}
+                className={`easter-egg-cta ${
+                  easterRevealed ? '' : 'easter-egg-cta-pulse'
+                }`}
               >
                 {easterRevealed ? '닫기 ▲' : '👇 탭!'}
               </span>
@@ -277,21 +301,40 @@ export default function ResultCard({ result, answers, onRestart }) {
       </div>
 
       <div className="result-actions">
-        <button className="btn-primary" onClick={handleShare} disabled={busy !== null}>
+        <button
+          className="btn-primary"
+          onClick={handleShare}
+          disabled={busy !== null}
+        >
           {busy === 'share' ? '준비 중...' : '📸 인스타 공유하기'}
         </button>
-        <button className="btn-ghost" onClick={handleSave} disabled={busy !== null}>
+        <button
+          className="btn-ghost"
+          onClick={handleSave}
+          disabled={busy !== null}
+        >
           {busy === 'save' ? '저장 중...' : ' 📸 카드 저장하기'}
         </button>
-        <button className="btn-ghost" onClick={onRestart} disabled={busy !== null}>
+        <button
+          className="btn-ghost"
+          onClick={onRestart}
+          disabled={busy !== null}
+        >
           🔄 다시 하기
         </button>
       </div>
 
       {previewUrl && (
         <div className="image-preview-modal" onClick={closePreview}>
-          <div className="image-preview-inner" onClick={(e) => e.stopPropagation()}>
-            <img src={previewUrl} alt="결과 이미지" className="image-preview-img" />
+          <div
+            className="image-preview-inner"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewUrl}
+              alt="결과 이미지"
+              className="image-preview-img"
+            />
             <p className="image-preview-hint">
               👇 이미지를 <b>길게 눌러</b> "사진에 저장"을 선택하세요
             </p>

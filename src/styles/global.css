@@ -477,6 +477,12 @@ button {
   /* === /[옵션 B] === */
 }
 
+/* 캡처 중에는 mask-image 비활성화 (html-to-image 비호환) */
+.result-card[data-capturing='true'] .hero-illustration {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 /* 실제 선수 사진 영역 — 일러스트 유무에 따라 사이즈 바뀜 */
 .hero-card-character {
   position: relative;
