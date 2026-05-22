@@ -17,13 +17,6 @@ import { defaultResultCopy, generateResultCopy } from '../utils/claudeApi.js';
 //   [3] 카피 (관상+심장)   — "X의 관상에 Y의 심장을 가진 당신!"
 //   [4] 이스터에그 (탭)    — "내 관상 속 숨겨진 닮은꼴 선수" (탭하면 펼쳐짐)
 
-function isMobile() {
-  if (typeof navigator === 'undefined') return false;
-  return /Android|webOS|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
-    navigator.userAgent
-  );
-}
-
 // 모든 <img>를 캡처 직전 data URL로 변환.
 // iOS Safari는 메모리 압박 시 디코딩된 이미지 데이터를 GC하기 때문에
 // img.complete === true여도 toBlob 시점에 빈 캔버스가 그려질 수 있음.
@@ -84,8 +77,7 @@ export default function ResultCard({ result, answers, onRestart }) {
     [styleMatch.player]
   );
   const cardRef = useRef(null);
-  const [busy, setBusy] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [easterRevealed, setEasterRevealed] = useState(false);
   // 일러스트 로드 여부 — 있으면 실제 사진은 작게(검증용), 없으면 크게(메인 비주얼)
   const [hasIllustration, setHasIllustration] = useState(false);
@@ -182,34 +174,9 @@ export default function ResultCard({ result, answers, onRestart }) {
     URL.revokeObjectURL(url);
   };
 
-  const handleSave = async () => {
-    if (busy) return;
-    setBusy('save');
-    try {
-      const blob = await captureImage();
-      if (!blob) throw new Error('이미지 생성 실패');
-      const filename = `kickkick-${styleMatch.type}.png`;
-      if (isMobile()) {
-        const url = URL.createObjectURL(blob);
-        setPreviewUrl(url);
-      } else {
-        downloadBlob(blob, filename);
-      }
-    } catch (e) {
-      alert('이미지 저장 실패: ' + (e.message || e));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const closePreview = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-  };
-
   const handleShare = async () => {
     if (busy) return;
-    setBusy('share');
+    setBusy(true);
     try {
       const blob = await captureImage();
       if (!blob) throw new Error('이미지 생성 실패');
@@ -218,6 +185,7 @@ export default function ResultCard({ result, answers, onRestart }) {
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
+          // iOS/Android 공유 시트 — "사진에 저장", 인스타 스토리, 카톡 등 다 여기서 선택
           await navigator.share({
             files: [file],
             title: 'KickKick 결과',
@@ -228,14 +196,12 @@ export default function ResultCard({ result, answers, onRestart }) {
           if (e.name === 'AbortError') return;
         }
       }
+      // 데스크탑/미지원 브라우저 폴백 — 직접 다운로드
       downloadBlob(blob, filename);
-      alert(
-        '이 기기에서는 직접 공유가 안 돼서 이미지로 저장했어요. 사진앱에서 인스타 스토리로 올려보세요!'
-      );
     } catch (e) {
       alert('공유 실패: ' + (e.message || e));
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
@@ -348,49 +314,13 @@ export default function ResultCard({ result, answers, onRestart }) {
       </div>
 
       <div className="result-actions">
-        <button
-          className="btn-primary"
-          onClick={handleShare}
-          disabled={busy !== null}
-        >
-          {busy === 'share' ? '준비 중...' : '📸 인스타 공유하기'}
+        <button className="btn-primary" onClick={handleShare} disabled={busy}>
+          {busy ? '준비 중...' : '📸 인스타 공유하기'}
         </button>
-        <button
-          className="btn-ghost"
-          onClick={handleSave}
-          disabled={busy !== null}
-        >
-          {busy === 'save' ? '저장 중...' : ' 📸 카드 저장하기'}
-        </button>
-        <button
-          className="btn-ghost"
-          onClick={onRestart}
-          disabled={busy !== null}
-        >
+        <button className="btn-ghost" onClick={onRestart} disabled={busy}>
           🔄 다시 하기
         </button>
       </div>
-
-      {previewUrl && (
-        <div className="image-preview-modal" onClick={closePreview}>
-          <div
-            className="image-preview-inner"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={previewUrl}
-              alt="결과 이미지"
-              className="image-preview-img"
-            />
-            <p className="image-preview-hint">
-              👇 이미지를 <b>길게 눌러</b> "사진에 저장"을 선택하세요
-            </p>
-            <button className="btn-ghost" onClick={closePreview}>
-              닫기
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

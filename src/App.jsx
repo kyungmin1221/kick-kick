@@ -73,7 +73,8 @@ export default function App() {
   else if (quiz.done && mode === 'photo') stage = 'upload';
   else if (started) stage = 'quiz';
   // 'no-photo' 모드에서 quiz.done이지만 face가 아직 idle인 짧은 순간 → 로딩처럼 보이게
-  if (mode === 'no-photo' && quiz.done && face.status === 'idle') stage = 'loading';
+  if (mode === 'no-photo' && quiz.done && face.status === 'idle')
+    stage = 'loading';
 
   if (route === 'admin') {
     return (
@@ -92,7 +93,10 @@ export default function App() {
       <div className="app-bg" />
       <main className="app-main">
         {stage === 'intro' && (
-          <IntroScreen onStart={handleStart} onStartNoPhoto={handleStartNoPhoto} />
+          <IntroScreen
+            onStart={handleStart}
+            onStartNoPhoto={handleStartNoPhoto}
+          />
         )}
         {stage === 'quiz' && (
           <QuizScreen
@@ -114,6 +118,7 @@ export default function App() {
       </main>
       <footer className="app-footer">
         <div>KickKick : 킥킥 | 2026 월드컵 나와 닮은 축구선수는?</div>
+        <div>Contact : kookps68@gmail.com</div>
       </footer>
     </div>
   );
