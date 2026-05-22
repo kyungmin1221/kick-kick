@@ -2,14 +2,14 @@ export default function IntroScreen({ onStart }) {
   return (
     <div className="screen intro">
       <div className="intro-hero">
-        <div className="intro-badge">2026 FIFA WORLD CUP</div>
+        <div className="intro-badge">2026 월드컵 나와 닮은 선수는?</div>
         <h1 className="intro-title">
           KICK<span className="intro-title-accent">KICK</span>
         </h1>
         <p className="intro-subtitle">나와 닮은 월드컵 선수 찾기</p>
         <p className="intro-desc">
           간단한 10문항 + 사진 한 장으로 <br />
-          나와 가장 닮은 선수를 찾아드려요.
+          나와 가장 닮은 선수를 찾아봐요
         </p>
       </div>
 

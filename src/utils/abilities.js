@@ -40,3 +40,5 @@ export function computeAbilities(answerTypes) {
   }
   return result;
 }
+
+// 사진 안씀을 사용자들한테 말해주기 

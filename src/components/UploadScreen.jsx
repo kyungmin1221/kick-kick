@@ -56,6 +56,12 @@ export default function UploadScreen({ onSubmit }) {
       >
         분석 시작
       </button>
+
+      <div className="upload-privacy">
+        🔒 사진은 브라우저 안에서만 분석되고,
+        <br />
+        서버로 전송되거나 저장되지 않아요.
+      </div>
     </div>
   );
 }

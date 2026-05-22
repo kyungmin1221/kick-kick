@@ -15,7 +15,9 @@ export default function App() {
   const face = useFaceMatch();
   const [started, setStarted] = useState(false);
   const [route, setRoute] = useState(() =>
-    typeof window !== 'undefined' && window.location.hash === '#admin' ? 'admin' : 'main',
+    typeof window !== 'undefined' && window.location.hash === '#admin'
+      ? 'admin'
+      : 'main'
   );
 
   useEffect(() => {
@@ -89,7 +91,9 @@ export default function App() {
           />
         )}
       </main>
-      <footer className="app-footer">KickKick · 2026 FIFA World Cup</footer>
+      <footer className="app-footer">
+        <div>KickKick : 킥킥 | 2026 월드컵 나와 닮은 축구선수는?</div>
+      </footer>
     </div>
   );
 }
