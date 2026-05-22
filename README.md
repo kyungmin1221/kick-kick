@@ -55,7 +55,25 @@ src/
    ```
    결과 카드는 `/players/<slug>/01.jpg`를 자동으로 로드합니다. 파일이 없으면 슬러그 기반 그라데이션 + 이니셜 플레이스홀더로 폴백.
 
-5. **선수 명단** — 현재 30명 등록. 2026.06.02 FIFA 명단 발표 후 필요 시 업데이트.
+5. **AI 일러스트 (선택, 강력 추천)** — `public/players/<slug>/illustration.png` 자리에 두면 히어로 카드 상단에 자동으로 등장.
+
+   **생성 방법 (Midjourney / DALL-E 3):**
+   ```
+   A trendy and cute 3D Pixar-style cartoon avatar of soccer player <PLAYER_NAME>,
+   wearing a <COUNTRY> football jersey, smiling, avatar icon,
+   solid clean background --v 6.0
+   ```
+   `<PLAYER_NAME>`만 바꿔서 30명분 일괄 생성. 1~2시간 작업.
+
+   배치:
+   ```
+   public/players/mbappe/illustration.png
+   public/players/ronaldo/illustration.png
+   ...
+   ```
+   파일이 없는 선수는 일러스트 영역이 자동으로 숨겨지고 작은 실제 사진만 나옵니다.
+
+6. **선수 명단** — 현재 30명 등록. 2026.06.02 FIFA 명단 발표 후 필요 시 업데이트.
 
 벡터가 비어 있는 선수도 후보에서 자동 제외됩니다. 전체가 비어있으면 퀴즈 결과만으로 매칭하는 폴백 모드로 동작.
 

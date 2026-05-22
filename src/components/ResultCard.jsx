@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PlayerAvatar from './PlayerAvatar.jsx';
+import PlayerIllustration from './PlayerIllustration.jsx';
 import AbilityRadar from './AbilityRadar.jsx';
 import {
   COUNTRY_THEME,
@@ -45,6 +46,12 @@ export default function ResultCard({ result, answers, onRestart }) {
   const [busy, setBusy] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [easterRevealed, setEasterRevealed] = useState(false);
+  // 일러스트 로드 여부 — 있으면 실제 사진은 작게(검증용), 없으면 크게(메인 비주얼)
+  const [hasIllustration, setHasIllustration] = useState(false);
+
+  useEffect(() => {
+    setHasIllustration(false);
+  }, [styleMatch.player.slug]);
 
   const abilities = useMemo(
     () => computeAbilities(answers.map((a) => a.type)),
@@ -177,13 +184,24 @@ export default function ResultCard({ result, answers, onRestart }) {
         <div className="hero-card" style={{ background: heroGradient }}>
           <div className="hero-card-watermark">{styleMatch.player.countryFlag}</div>
 
+          {/* AI 일러스트 (있는 선수만 자동 등장) */}
+          <PlayerIllustration
+            player={styleMatch.player}
+            onLoaded={() => setHasIllustration(true)}
+            onFailed={() => setHasIllustration(false)}
+          />
+
           <h1 className="hero-card-nickname">"{nickname}"</h1>
           <div className="hero-card-player-line">
             {styleMatch.player.country} 국대 <b>{styleMatch.player.name}</b> 타입
           </div>
 
-          <div className="hero-card-character">
-            <PlayerAvatar player={styleMatch.player} size="hero" />
+          {/* 실제 선수 사진 — 일러스트 있으면 검증용 작은 원, 없으면 메인 비주얼 */}
+          <div className={`hero-card-character ${hasIllustration ? 'is-small' : 'is-large'}`}>
+            <PlayerAvatar
+              player={styleMatch.player}
+              size={hasIllustration ? 'md' : 'hero'}
+            />
             <div className="hero-character-badge">{theme.icon}</div>
           </div>
 
@@ -209,6 +227,7 @@ export default function ResultCard({ result, answers, onRestart }) {
         </div>
 
         {/* ===== 카피 ===== */}
+        <div className="result-analysis-label">✨ 당신을 위한 스페셜 분석</div>
         <p className="result-description">
           {loadingCopy && copy === fallbackCopy ? '결과 설명을 만드는 중...' : copy}
         </p>
@@ -259,13 +278,13 @@ export default function ResultCard({ result, answers, onRestart }) {
 
       <div className="result-actions">
         <button className="btn-primary" onClick={handleShare} disabled={busy !== null}>
-          {busy === 'share' ? '준비 중...' : '📤 공유하기'}
+          {busy === 'share' ? '준비 중...' : '📸 인스타 공유하기'}
         </button>
         <button className="btn-ghost" onClick={handleSave} disabled={busy !== null}>
-          {busy === 'save' ? '저장 중...' : '📥 사진 저장'}
+          {busy === 'save' ? '저장 중...' : ' 📸 카드 저장하기'}
         </button>
         <button className="btn-ghost" onClick={onRestart} disabled={busy !== null}>
-          다시 해보기
+          🔄 다시 하기
         </button>
       </div>
 
