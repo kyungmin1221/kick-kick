@@ -24,27 +24,53 @@ function isMobile() {
   );
 }
 
-// 이미지를 로드 + 메모리에 강제 디코딩.
-// iOS Safari는 화면에 안 보이는 이미지를 메모리에서 해제하기 때문에,
-// html-to-image의 toBlob 시점에 이미지가 빈 상태로 캔버스에 그려질 수 있음.
-// img.decode()로 직전 강제 디코딩하면 toBlob이 항상 그릴 데이터를 보장.
-async function waitForImages(root) {
+// 모든 <img>를 캡처 직전 data URL로 변환.
+// iOS Safari는 메모리 압박 시 디코딩된 이미지 데이터를 GC하기 때문에
+// img.complete === true여도 toBlob 시점에 빈 캔버스가 그려질 수 있음.
+// 미리 fetch → base64 변환 → src를 data URL로 교체하면, html-to-image가
+// 외부 fetch/decode 없이 인라인 데이터로 캔버스에 직접 그릴 수 있어 안정적.
+async function inlineImagesToDataUrls(root) {
   const imgs = Array.from(root.querySelectorAll('img'));
+  const restoreFns = [];
+
   await Promise.all(
     imgs.map(async (img) => {
-      if (!img.complete || !img.naturalWidth) {
-        await new Promise((resolve) => {
-          img.addEventListener('load', resolve, { once: true });
-          img.addEventListener('error', resolve, { once: true });
-        });
-      }
+      const originalSrc = img.src;
+      if (originalSrc.startsWith('data:')) return; // 이미 인라인
       try {
-        await img.decode?.();
+        const response = await fetch(originalSrc);
+        const blob = await response.blob();
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        await new Promise((resolve) => {
+          const done = () => {
+            img.removeEventListener('load', done);
+            img.removeEventListener('error', done);
+            resolve();
+          };
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true });
+          img.src = dataUrl;
+        });
+        try {
+          await img.decode?.();
+        } catch {
+          /* 무시 */
+        }
+        restoreFns.push(() => {
+          img.src = originalSrc;
+        });
       } catch {
-        /* decode 실패는 무시 */
+        /* 개별 이미지 실패는 무시하고 진행 */
       }
-    })
+    }),
   );
+
+  return () => restoreFns.forEach((fn) => fn());
 }
 
 export default function ResultCard({ result, answers, onRestart }) {
@@ -120,25 +146,22 @@ export default function ResultCard({ result, answers, onRestart }) {
     const wasRevealed = easterRevealed;
     if (faceMatch && !wasRevealed) setEasterRevealed(true);
 
-    await new Promise((r) => setTimeout(r, 40));
-    // 이미지 강제 디코딩 — iOS Safari가 GC한 이미지를 다시 메모리에 올림
-    await waitForImages(cardRef.current);
+    // React 상태 commit 대기 + 이스터에그 img mount 대기
+    await new Promise((r) => setTimeout(r, 60));
+
+    // 모든 img를 data URL로 인라인 (iOS Safari GC 이슈 회피)
+    const restoreImages = await inlineImagesToDataUrls(cardRef.current);
 
     const { toBlob } = await import('html-to-image');
-    const opts = {
-      cacheBust: false, // 이미 디코딩된 캐시 이미지 재사용
-      backgroundColor: '#0a0e1a',
-    };
     try {
-      // 워밍업 1회 — iOS Safari 캔버스 안정화
-      await toBlob(cardRef.current, { ...opts, pixelRatio: 1 });
-      await new Promise((r) => setTimeout(r, 30));
-      // 디코딩 한 번 더 (워밍업으로 인한 메모리 변화 대응)
-      await waitForImages(cardRef.current);
-      // 본 캡처
-      const blob = await toBlob(cardRef.current, { ...opts, pixelRatio: 2 });
+      const blob = await toBlob(cardRef.current, {
+        pixelRatio: 2,
+        cacheBust: false,
+        backgroundColor: '#0a0e1a',
+      });
       return blob;
     } finally {
+      restoreImages();
       if (illustration) {
         illustration.style.maskImage = originalMask || '';
         illustration.style.webkitMaskImage = originalWebkitMask || '';
