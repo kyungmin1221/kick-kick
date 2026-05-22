@@ -147,11 +147,12 @@ export default function ResultCard({ result, answers, onRestart }) {
     const { toBlob } = await import('html-to-image');
     const opts = { cacheBust: false, backgroundColor: '#0a0e1a' };
     try {
-      // 워밍업 toBlob 1회 — iOS Safari의 첫 캡처 시 캔버스가 비는 이슈 회피.
-      // data URL 인라이닝 덕분에 워밍업도 빠름(~200~500ms).
+      // iOS Safari는 첫 toBlob 시 캔버스가 비어서 그려질 수 있어
+      // 워밍업 2회 후 실제 캡처 (총 3회). data URL 인라이닝 덕에 토탈 ~2초.
       await toBlob(cardRef.current, { ...opts, pixelRatio: 1 });
-      await new Promise((r) => setTimeout(r, 30));
-      // 본 캡처
+      await new Promise((r) => setTimeout(r, 50));
+      await toBlob(cardRef.current, { ...opts, pixelRatio: 1 });
+      await new Promise((r) => setTimeout(r, 50));
       const blob = await toBlob(cardRef.current, { ...opts, pixelRatio: 2 });
       return blob;
     } finally {
