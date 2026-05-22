@@ -1,16 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PlayerAvatar from './PlayerAvatar.jsx';
 import AbilityRadar from './AbilityRadar.jsx';
-import { TYPE_NICKNAME, computeAbilities } from '../utils/abilities.js';
+import {
+  COUNTRY_THEME,
+  TYPE_NICKNAME,
+  TYPE_THEME,
+  computeAbilities,
+  getFunHashtags,
+} from '../utils/abilities.js';
 import { defaultResultCopy, generateResultCopy } from '../utils/claudeApi.js';
+
+// 결과 카드 구조 (위계):
+//   [1] HERO 캐릭터 카드  — 별명 + 국대 타입 + 캐릭터(유저 사진 또는 이모지) + 힙한 해시태그
+//   [2] 능력치 레이더      — 큼직하게
+//   [3] 카피 (관상+심장)   — "X의 관상에 Y의 심장을 가진 당신!"
+//   [4] 이스터에그 (탭)    — "내 관상 속 숨겨진 닮은꼴 선수" (탭하면 펼쳐짐)
 
 function isMobile() {
   if (typeof navigator === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
 }
 
-// 캡처 직전 카드 내 모든 <img>가 로드 완료될 때까지 대기.
-// (그렇지 않으면 캡처 결과에서 이미지가 누락되거나 레이아웃이 깨질 수 있음)
 function waitForImages(root) {
   const imgs = Array.from(root.querySelectorAll('img'));
   return Promise.all(
@@ -26,11 +36,15 @@ function waitForImages(root) {
 }
 
 export default function ResultCard({ result, answers, onRestart }) {
-  const { faceMatch, styleMatch, isPerfectMatch } = result;
+  const { faceMatch, styleMatch, isPerfectMatch, userPhotoUrl } = result;
   const nickname = TYPE_NICKNAME[styleMatch.type] || '월드컵의 별';
+  const theme = TYPE_THEME[styleMatch.type] || TYPE_THEME.midfielder;
+  const heroGradient = COUNTRY_THEME[styleMatch.player.country] || theme.gradient;
+  const hashtags = useMemo(() => getFunHashtags(styleMatch.player), [styleMatch.player]);
   const cardRef = useRef(null);
-  const [busy, setBusy] = useState(null); // null | 'save' | 'share'
+  const [busy, setBusy] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [easterRevealed, setEasterRevealed] = useState(false);
 
   const abilities = useMemo(
     () => computeAbilities(answers.map((a) => a.type)),
@@ -48,7 +62,12 @@ export default function ResultCard({ result, answers, onRestart }) {
     let cancelled = false;
     setCopy(fallbackCopy);
     setLoadingCopy(true);
-    generateResultCopy({ faceMatch, styleMatch, nickname, isPerfectMatch })
+    generateResultCopy({
+      faceMatch: faceMatch || { player: styleMatch.player, similarity: 0 },
+      styleMatch,
+      nickname,
+      isPerfectMatch: !faceMatch || isPerfectMatch,
+    })
       .then((text) => {
         if (!cancelled && text) setCopy(text);
       })
@@ -60,28 +79,29 @@ export default function ResultCard({ result, answers, onRestart }) {
     };
   }, [faceMatch, styleMatch, nickname, isPerfectMatch, fallbackCopy]);
 
-  const shareText = isPerfectMatch
-    ? `🎯 나는 ${faceMatch.player.countryFlag} ${faceMatch.player.name}과 완벽 일치! — "${nickname}" / KickKick`
-    : `${faceMatch.player.countryFlag} ${faceMatch.player.name} 얼굴 닮은꼴 + ${styleMatch.player.countryFlag} ${styleMatch.player.name} 스타일 — "${nickname}" / KickKick`;
+  const shareText = `🏆 나는 "${nickname}" — ${styleMatch.player.country} 국대 ${styleMatch.player.name} 타입! / KickKick`;
 
   const captureImage = async () => {
     if (!cardRef.current) return null;
-    // 캡처 전에 카드 안의 모든 이미지 로드 보장
+    // 이스터에그를 캡처 시 펼쳐서 함께 담기
+    const wasRevealed = easterRevealed;
+    if (faceMatch && !wasRevealed) setEasterRevealed(true);
+    await new Promise((r) => setTimeout(r, 30));
     await waitForImages(cardRef.current);
-    // 레이아웃 안정화를 위한 약간의 대기
     await new Promise((r) => setTimeout(r, 80));
     const { toBlob } = await import('html-to-image');
-    // 동일 출처 이미지를 두 번 한 번 더 거쳐 캐시 워밍 (간헐적 race 회피)
     await toBlob(cardRef.current, {
       pixelRatio: 1,
       cacheBust: false,
       backgroundColor: '#0a0e1a',
     });
-    return await toBlob(cardRef.current, {
+    const blob = await toBlob(cardRef.current, {
       pixelRatio: 2,
       cacheBust: false,
       backgroundColor: '#0a0e1a',
     });
+    if (!wasRevealed) setEasterRevealed(false);
+    return blob;
   };
 
   const downloadBlob = (blob, filename) => {
@@ -101,15 +121,11 @@ export default function ResultCard({ result, answers, onRestart }) {
     try {
       const blob = await captureImage();
       if (!blob) throw new Error('이미지 생성 실패');
-      const filename = `kickkick-${faceMatch.player.slug}.png`;
-
+      const filename = `kickkick-${styleMatch.type}.png`;
       if (isMobile()) {
-        // 모바일: 이미지를 모달로 띄워 길게 눌러 저장 안내
-        // (iOS Safari는 <a download>가 사진앱이 아니라 파일앱으로 가서 통하지 않음)
         const url = URL.createObjectURL(blob);
         setPreviewUrl(url);
       } else {
-        // 데스크탑: 일반 다운로드
         downloadBlob(blob, filename);
       }
     } catch (e) {
@@ -130,10 +146,9 @@ export default function ResultCard({ result, answers, onRestart }) {
     try {
       const blob = await captureImage();
       if (!blob) throw new Error('이미지 생성 실패');
-      const filename = `kickkick-${faceMatch.player.slug}.png`;
+      const filename = `kickkick-${styleMatch.type}.png`;
       const file = new File([blob], filename, { type: 'image/png' });
 
-      // Web Share API + 파일: 모바일에서 인스타/카톡 등 공유 시트 호출
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
@@ -143,11 +158,9 @@ export default function ResultCard({ result, answers, onRestart }) {
           });
           return;
         } catch (e) {
-          if (e.name === 'AbortError') return; // 사용자가 취소
-          // 그 외 에러는 폴백으로 진행
+          if (e.name === 'AbortError') return;
         }
       }
-      // 폴백: 이미지 다운로드 + 안내
       downloadBlob(blob, filename);
       alert('이 기기에서는 직접 공유가 안 돼서 이미지로 저장했어요. 사진앱에서 인스타 스토리로 올려보세요!');
     } catch (e) {
@@ -160,73 +173,88 @@ export default function ResultCard({ result, answers, onRestart }) {
   return (
     <div className="screen result">
       <div className="result-card" ref={cardRef}>
-        {isPerfectMatch && <div className="result-perfect-badge">🔥 완벽 일치</div>}
+        {/* ===== HERO 캐릭터 카드 ===== */}
+        <div className="hero-card" style={{ background: heroGradient }}>
+          <div className="hero-card-watermark">{styleMatch.player.countryFlag}</div>
 
-        <div className="result-nickname">"{nickname}"</div>
+          <h1 className="hero-card-nickname">"{nickname}"</h1>
+          <div className="hero-card-player-line">
+            {styleMatch.player.country} 국대 <b>{styleMatch.player.name}</b> 타입
+          </div>
 
-        <div className="result-main">
-          <PlayerAvatar player={faceMatch.player} size="lg" />
-          <div className="result-main-stats">
-            <div className="result-similarity">
-              <span className="result-similarity-num">{faceMatch.similarity}</span>
-              <span className="result-similarity-unit">%</span>
-            </div>
-            <div className="result-similarity-label">얼굴 닮은꼴</div>
-            <div className="result-flag-small">{faceMatch.player.countryFlag}</div>
+          <div className="hero-card-character">
+            <PlayerAvatar player={styleMatch.player} size="hero" />
+            <div className="hero-character-badge">{theme.icon}</div>
+          </div>
+
+          {isPerfectMatch && faceMatch && (
+            <div className="hero-card-perfect">🔥 관상까지 완벽 일치!</div>
+          )}
+
+          <div className="hero-card-tags">
+            {hashtags.map((tag) => (
+              <span key={tag} className="hero-card-tag">
+                {tag}
+              </span>
+            ))}
           </div>
         </div>
 
-        <h2 className="result-name">{faceMatch.player.name}</h2>
-        <div className="result-meta">
-          {faceMatch.player.country} · {faceMatch.player.position} · {faceMatch.player.nameEn}
-        </div>
-
-        <div className="result-tags">
-          {faceMatch.player.tags.map((tag) => (
-            <span key={tag} className="result-tag">
-              #{tag}
-            </span>
-          ))}
-        </div>
-
-        {!isPerfectMatch && (
-          <div className="result-divider">
-            <span>플레이 스타일</span>
+        {/* ===== 능력치 ===== */}
+        <div className="result-section">
+          <div className="result-section-title">⚡ 나의 능력치</div>
+          <div className="result-radar-wrap">
+            <AbilityRadar scores={abilities} />
           </div>
-        )}
-        {!isPerfectMatch && (
-          <div className="result-style-row">
-            <PlayerAvatar player={styleMatch.player} size="sm" />
-            <div className="result-style-text">
-              <div className="result-style-name">
-                {styleMatch.player.countryFlag} {styleMatch.player.name}
-              </div>
-              <div className="result-style-meta">
-                {styleMatch.player.country} · {styleMatch.player.position}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="result-divider">
-          <span>나의 능력치</span>
-        </div>
-        <div className="result-radar-wrap">
-          <AbilityRadar scores={abilities} />
         </div>
 
+        {/* ===== 카피 ===== */}
         <p className="result-description">
           {loadingCopy && copy === fallbackCopy ? '결과 설명을 만드는 중...' : copy}
         </p>
 
-        {faceMatch.mode === 'quiz-only' && (
-          <p className="result-notice">
-            * 선수 얼굴 데이터가 아직 준비되지 않아 퀴즈 결과로만 매칭됐어요.
+        {/* ===== 이스터에그 (탭하면 펼쳐짐) ===== */}
+        {faceMatch && !isPerfectMatch && (
+          <button
+            type="button"
+            className={`easter-egg ${easterRevealed ? 'revealed' : ''}`}
+            onClick={() => setEasterRevealed((v) => !v)}
+          >
+            <div className="easter-egg-head">
+              <span className="easter-egg-icon">🔮</span>
+              <span className="easter-egg-title">
+                내 관상 속 숨겨진 닮은꼴 선수
+              </span>
+              <span
+                className={`easter-egg-cta ${easterRevealed ? '' : 'easter-egg-cta-pulse'}`}
+              >
+                {easterRevealed ? '닫기 ▲' : '👇 탭!'}
+              </span>
+            </div>
+            {easterRevealed && (
+              <div className="easter-egg-body">
+                <PlayerAvatar player={faceMatch.player} size="sm" />
+                <div className="easter-egg-info">
+                  <div className="ee-name">
+                    {faceMatch.player.countryFlag} {faceMatch.player.name}
+                  </div>
+                  <div className="ee-meta">
+                    {faceMatch.player.country} · {faceMatch.player.position}
+                  </div>
+                </div>
+                <div className="ee-pct">{faceMatch.similarity}%</div>
+              </div>
+            )}
+          </button>
+        )}
+
+        {!faceMatch && (
+          <p className="result-no-photo">
+            💡 사진을 올리면 나와 닮은 선수도 보여드려요
           </p>
         )}
-        <p className="result-disclaimer">
-          ⚽ 친구에게 공유해봐요!
-        </p>
+
+        <p className="result-disclaimer">⚽ 친구에게 공유해봐요!</p>
       </div>
 
       <div className="result-actions">

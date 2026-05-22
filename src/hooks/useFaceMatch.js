@@ -21,7 +21,11 @@ export function useFaceMatch() {
     setError(null);
     setResult(null);
 
+    // 사용자 사진의 blob URL — 결과 카드 캐릭터 영역에 보여주기 위해 생성
+    let userPhotoUrl = null;
     try {
+      userPhotoUrl = URL.createObjectURL(file);
+
       const styleMatchPlayer =
         players.find((p) => p.type === dominantType) || players[0];
       const styleMatch = { player: styleMatchPlayer, type: dominantType };
@@ -41,25 +45,26 @@ export function useFaceMatch() {
           },
           styleMatch,
           isPerfectMatch: true,
+          userPhotoUrl,
         });
         setStatus('success');
         return;
       }
 
-      // face-api 매칭
       await loadModels();
       const image = await fileToImage(file);
       const userDescriptor = await extractDescriptor(image);
       if (!userDescriptor) {
+        URL.revokeObjectURL(userPhotoUrl);
         throw new Error('얼굴을 찾지 못했어요. 정면 사진으로 다시 시도해주세요.');
       }
 
       const match = findBestMatch(userDescriptor, players);
       if (!match) {
+        URL.revokeObjectURL(userPhotoUrl);
         throw new Error('매칭할 선수가 없습니다.');
       }
 
-      // 같은 type이면 약간의 가산점 (얼굴 우선이지만 퀴즈와 일치하면 더 자신 있게)
       if (match.player.type === dominantType) {
         match.similarity = Math.min(99, match.similarity + 3);
       }
@@ -69,6 +74,29 @@ export function useFaceMatch() {
         faceMatch,
         styleMatch,
         isPerfectMatch: faceMatch.player.slug === styleMatchPlayer.slug,
+        userPhotoUrl,
+      });
+      setStatus('success');
+    } catch (e) {
+      if (userPhotoUrl) URL.revokeObjectURL(userPhotoUrl);
+      setError(e.message || String(e));
+      setStatus('error');
+    }
+  }, []);
+
+  // 사진 없이 퀴즈 결과로만 매칭 (사용자가 인트로에서 "사진 없이" 선택한 경우)
+  const analyzeQuizOnly = useCallback(async (dominantType) => {
+    setStatus('loading');
+    setError(null);
+    setResult(null);
+    try {
+      await new Promise((r) => setTimeout(r, 700)); // 로딩 효과
+      const styleMatchPlayer =
+        players.find((p) => p.type === dominantType) || players[0];
+      setResult({
+        faceMatch: null, // 사진을 안 올렸으므로 얼굴 매칭 없음
+        styleMatch: { player: styleMatchPlayer, type: dominantType },
+        isPerfectMatch: false,
       });
       setStatus('success');
     } catch (e) {
@@ -78,10 +106,13 @@ export function useFaceMatch() {
   }, []);
 
   const reset = useCallback(() => {
+    setResult((prev) => {
+      if (prev?.userPhotoUrl) URL.revokeObjectURL(prev.userPhotoUrl);
+      return null;
+    });
     setStatus('idle');
-    setResult(null);
     setError(null);
   }, []);
 
-  return { status, result, error, analyze, reset };
+  return { status, result, error, analyze, analyzeQuizOnly, reset };
 }

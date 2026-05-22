@@ -35,10 +35,25 @@ export async function generateResultCopy({ faceMatch, styleMatch, nickname, isPe
   }
 }
 
-// API 없을 때 사용하는 기본 카피
+import { TYPE_ADJECTIVE } from './abilities.js';
+
+// API 없을 때 사용하는 기본 카피.
+// 핵심: 타입(퀴즈 결과)을 먼저 단정적으로 선언 → 마지막에 얼굴 매칭을 호기심 티저로.
+// 닮은꼴 선수 이름은 절대 카피에 노출하지 않음 (이스터에그 탭에서만 공개).
 export function defaultResultCopy({ faceMatch, styleMatch, nickname, isPerfectMatch }) {
-  if (isPerfectMatch) {
-    return `당신은 ${faceMatch.player.name} 그 자체! 얼굴부터 플레이 스타일까지 완벽한 매치, 진정한 "${nickname}" 타입입니다.`;
+  const typeAdj = TYPE_ADJECTIVE[styleMatch.type] || '월드컵의 별';
+  const styleP = styleMatch.player;
+
+  // 사진 모드 + 완벽 일치 — 관상까지 같은 선수
+  if (faceMatch && isPerfectMatch) {
+    return `${styleP.name} 그 자체! 관상부터 플레이 스타일까지 완벽한 매치, 진정한 "${nickname}"입니다.`;
   }
-  return `${faceMatch.player.name}의 얼굴에 ${styleMatch.player.name}의 심장을 가진 당신. "${nickname}" 타입의 당신은 그라운드 위 가장 무서운 조합입니다.`;
+
+  // 사진 모드 + 다른 선수 — 타입 단정 + 얼굴은 티저로 숨김
+  if (faceMatch && faceMatch.player.slug !== styleP.slug) {
+    return `${typeAdj} ${styleP.name}의 심장을 가진 당신! 그라운드 위 가장 무서운 지배자입니다. (소근소근.. 근데 당신 얼굴에서 ${faceMatch.player.country} 국대 선수의 관상이 보이는데..?! 👇 아래에서 확인)`;
+  }
+
+  // 사진 없음
+  return `${typeAdj} ${styleP.name}의 심장을 가진 당신! 그라운드 위 가장 무서운 지배자입니다.`;
 }

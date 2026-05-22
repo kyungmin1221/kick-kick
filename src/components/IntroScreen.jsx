@@ -1,4 +1,4 @@
-export default function IntroScreen({ onStart }) {
+export default function IntroScreen({ onStart, onStartNoPhoto }) {
   return (
     <div className="screen intro">
       <div className="intro-hero">
@@ -8,19 +8,24 @@ export default function IntroScreen({ onStart }) {
         </h1>
         <p className="intro-subtitle">나와 닮은 월드컵 선수 찾기</p>
         <p className="intro-desc">
-          간단한 10문항 + 사진 한 장으로 <br />
-          나와 가장 닮은 선수를 찾아봐요
+          10문항으로 내 플레이 스타일을 찾고, <br />
+          (선택) 사진까지 더하면 닮은 선수도 알려드려요.
         </p>
       </div>
 
-      <button className="btn-primary" onClick={onStart}>
-        지금 시작하기
-      </button>
+      <div className="intro-actions">
+        <button className="btn-primary" onClick={onStart}>
+          📸 사진 올리고 시작하기
+        </button>
+        <button className="btn-ghost" onClick={onStartNoPhoto}>
+          사진 없이 성향만 보기
+        </button>
+      </div>
 
       <ul className="intro-steps">
-        <li>1. 10문항 답하기</li>
-        <li>2. 정면 사진 업로드</li>
-        <li>3. AI가 닮은 선수 찾기</li>
+        <li>1. 10문항 답하기 (30초)</li>
+        <li>2. (선택) 사진 한 장 올리기</li>
+        <li>3. 내 월드컵 캐릭터 카드 받기</li>
       </ul>
     </div>
   );

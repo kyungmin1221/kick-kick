@@ -14,6 +14,7 @@ export default function App() {
   const quiz = useQuiz();
   const face = useFaceMatch();
   const [started, setStarted] = useState(false);
+  const [mode, setMode] = useState('photo'); // 'photo' | 'no-photo'
   const [route, setRoute] = useState(() =>
     typeof window !== 'undefined' && window.location.hash === '#admin'
       ? 'admin'
@@ -31,6 +32,14 @@ export default function App() {
   const handleStart = () => {
     quiz.reset();
     face.reset();
+    setMode('photo');
+    setStarted(true);
+  };
+
+  const handleStartNoPhoto = () => {
+    quiz.reset();
+    face.reset();
+    setMode('no-photo');
     setStarted(true);
   };
 
@@ -42,7 +51,15 @@ export default function App() {
     face.reset();
     quiz.reset();
     setStarted(false);
+    setMode('photo');
   };
+
+  // 사진 없이 모드: 퀴즈 끝나자마자 자동으로 결과 산출
+  useEffect(() => {
+    if (mode === 'no-photo' && quiz.done && face.status === 'idle') {
+      face.analyzeQuizOnly(quiz.dominantType);
+    }
+  }, [mode, quiz.done, quiz.dominantType, face]);
 
   useEffect(() => {
     if (face.status === 'error' && face.error) {
@@ -53,8 +70,10 @@ export default function App() {
   let stage = 'intro';
   if (face.status === 'success') stage = 'result';
   else if (face.status === 'loading') stage = 'loading';
-  else if (quiz.done) stage = 'upload';
+  else if (quiz.done && mode === 'photo') stage = 'upload';
   else if (started) stage = 'quiz';
+  // 'no-photo' 모드에서 quiz.done이지만 face가 아직 idle인 짧은 순간 → 로딩처럼 보이게
+  if (mode === 'no-photo' && quiz.done && face.status === 'idle') stage = 'loading';
 
   if (route === 'admin') {
     return (
@@ -72,7 +91,9 @@ export default function App() {
     <div className="app">
       <div className="app-bg" />
       <main className="app-main">
-        {stage === 'intro' && <IntroScreen onStart={handleStart} />}
+        {stage === 'intro' && (
+          <IntroScreen onStart={handleStart} onStartNoPhoto={handleStartNoPhoto} />
+        )}
         {stage === 'quiz' && (
           <QuizScreen
             step={quiz.step}
