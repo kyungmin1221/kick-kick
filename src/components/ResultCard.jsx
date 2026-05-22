@@ -17,53 +17,19 @@ import { defaultResultCopy, generateResultCopy } from '../utils/claudeApi.js';
 //   [3] 카피 (관상+심장)   — "X의 관상에 Y의 심장을 가진 당신!"
 //   [4] 이스터에그 (탭)    — "내 관상 속 숨겨진 닮은꼴 선수" (탭하면 펼쳐짐)
 
-// 모든 <img>를 캡처 직전 data URL로 변환.
-// iOS Safari는 메모리 압박 시 디코딩된 이미지 데이터를 GC하기 때문에
-// img.complete === true여도 toBlob 시점에 빈 캔버스가 그려질 수 있음.
-// 미리 fetch → base64 변환 → src를 data URL로 교체하면, html-to-image가
-// 외부 fetch/decode 없이 인라인 데이터로 캔버스에 직접 그릴 수 있어 안정적.
-async function inlineImagesToDataUrls(root) {
+// 캡처 전 모든 <img> 로드 완료 대기.
+async function waitForImages(root) {
   const imgs = Array.from(root.querySelectorAll('img'));
-  const restoreFns = [];
-
   await Promise.all(
-    imgs.map(async (img) => {
-      const originalSrc = img.src;
-      if (originalSrc.startsWith('data:')) return; // 이미 인라인
-      try {
-        const response = await fetch(originalSrc);
-        const blob = await response.blob();
-        const dataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-        await new Promise((resolve) => {
-          const done = () => {
-            img.removeEventListener('load', done);
-            img.removeEventListener('error', done);
-            resolve();
-          };
-          img.addEventListener('load', done, { once: true });
-          img.addEventListener('error', done, { once: true });
-          img.src = dataUrl;
-        });
-        try {
-          await img.decode?.();
-        } catch {
-          /* 무시 */
-        }
-        restoreFns.push(() => {
-          img.src = originalSrc;
-        });
-      } catch {
-        /* 개별 이미지 실패는 무시하고 진행 */
-      }
-    }),
+    imgs.map((img) =>
+      img.complete && img.naturalWidth
+        ? Promise.resolve()
+        : new Promise((resolve) => {
+            img.addEventListener('load', resolve, { once: true });
+            img.addEventListener('error', resolve, { once: true });
+          }),
+    ),
   );
-
-  return () => restoreFns.forEach((fn) => fn());
 }
 
 export default function ResultCard({ result, answers, onRestart }) {
@@ -125,7 +91,7 @@ export default function ResultCard({ result, answers, onRestart }) {
   const captureImage = async () => {
     if (!cardRef.current) return null;
 
-    // mask-image를 인라인 스타일로 직접 비활성화 (html-to-image 비호환)
+    // mask-image는 html2canvas도 지원 못함 — 캡처 동안만 비활성화
     const illustration = cardRef.current.querySelector('.hero-illustration');
     const originalMask = illustration?.style.maskImage;
     const originalWebkitMask = illustration?.style.webkitMaskImage;
@@ -138,25 +104,24 @@ export default function ResultCard({ result, answers, onRestart }) {
     const wasRevealed = easterRevealed;
     if (faceMatch && !wasRevealed) setEasterRevealed(true);
 
-    // React 상태 commit 대기 + 이스터에그 img mount 대기
+    // React commit + 이스터에그 img mount 대기
     await new Promise((r) => setTimeout(r, 60));
+    await waitForImages(cardRef.current);
 
-    // 모든 img를 data URL로 인라인 (iOS Safari GC 이슈 회피)
-    const restoreImages = await inlineImagesToDataUrls(cardRef.current);
-
-    const { toBlob } = await import('html-to-image');
-    const opts = { cacheBust: false, backgroundColor: '#0a0e1a' };
     try {
-      // iOS Safari는 첫 toBlob 시 캔버스가 비어서 그려질 수 있어
-      // 워밍업 2회 후 실제 캡처 (총 3회). data URL 인라이닝 덕에 토탈 ~2초.
-      await toBlob(cardRef.current, { ...opts, pixelRatio: 1 });
-      await new Promise((r) => setTimeout(r, 50));
-      await toBlob(cardRef.current, { ...opts, pixelRatio: 1 });
-      await new Promise((r) => setTimeout(r, 50));
-      const blob = await toBlob(cardRef.current, { ...opts, pixelRatio: 2 });
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(cardRef.current, {
+        useCORS: true,
+        scale: 2,
+        backgroundColor: '#0a0e1a',
+        logging: false,
+        imageTimeout: 8000,
+      });
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, 'image/png'),
+      );
       return blob;
     } finally {
-      restoreImages();
       if (illustration) {
         illustration.style.maskImage = originalMask || '';
         illustration.style.webkitMaskImage = originalWebkitMask || '';
