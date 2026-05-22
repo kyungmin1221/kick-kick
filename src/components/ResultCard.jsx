@@ -98,27 +98,43 @@ export default function ResultCard({ result, answers, onRestart }) {
   const captureImage = async () => {
     if (!cardRef.current) return null;
 
-    // 캡처 모드 ON — CSS mask-image 등 html-to-image 비호환 효과 비활성화
+    // mask-image를 인라인 스타일로 직접 비활성화 (data 속성보다 확실)
+    const illustration = cardRef.current.querySelector('.hero-illustration');
+    const originalMask = illustration?.style.maskImage;
+    const originalWebkitMask = illustration?.style.webkitMaskImage;
+    if (illustration) {
+      illustration.style.maskImage = 'none';
+      illustration.style.webkitMaskImage = 'none';
+    }
     cardRef.current.dataset.capturing = 'true';
+
     const wasRevealed = easterRevealed;
     if (faceMatch && !wasRevealed) setEasterRevealed(true);
-    await new Promise((r) => setTimeout(r, 30));
+
+    // React state commit + 이미지 로드 안정화 — 모바일은 더 넉넉히
+    await new Promise((r) => setTimeout(r, 120));
     await waitForImages(cardRef.current);
-    await new Promise((r) => setTimeout(r, 80));
+    await new Promise((r) => setTimeout(r, 150));
+
     const { toBlob } = await import('html-to-image');
+    const options = {
+      cacheBust: true, // iOS Safari에서 이미지 누락 회피
+      backgroundColor: '#0a0e1a',
+    };
+
     try {
-      await toBlob(cardRef.current, {
-        pixelRatio: 1,
-        cacheBust: false,
-        backgroundColor: '#0a0e1a',
-      });
-      const blob = await toBlob(cardRef.current, {
-        pixelRatio: 2,
-        cacheBust: false,
-        backgroundColor: '#0a0e1a',
-      });
+      // iOS Safari 이미지 안정화를 위해 워밍업 2회 + 본 캡처
+      await toBlob(cardRef.current, { ...options, pixelRatio: 1 });
+      await new Promise((r) => setTimeout(r, 80));
+      await toBlob(cardRef.current, { ...options, pixelRatio: 1 });
+      await new Promise((r) => setTimeout(r, 80));
+      const blob = await toBlob(cardRef.current, { ...options, pixelRatio: 2 });
       return blob;
     } finally {
+      if (illustration) {
+        illustration.style.maskImage = originalMask || '';
+        illustration.style.webkitMaskImage = originalWebkitMask || '';
+      }
       if (cardRef.current) delete cardRef.current.dataset.capturing;
       if (!wasRevealed) setEasterRevealed(false);
     }
