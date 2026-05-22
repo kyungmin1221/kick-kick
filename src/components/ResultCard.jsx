@@ -32,6 +32,53 @@ async function waitForImages(root) {
   );
 }
 
+// CSS filter(saturate/contrast)를 일러스트 이미지에 미리 굽기 — html2canvas가
+// CSS filter를 보존 못 해서 저장본이 화면보다 옅게 나오는 문제 해결.
+// 캡처 동안만 src를 교체하고, 끝나면 복원.
+async function bakeFilterIntoIllustrations(root) {
+  const imgs = Array.from(root.querySelectorAll('.hero-illustration'));
+  const restoreFns = [];
+
+  for (const img of imgs) {
+    if (!img.naturalWidth || !img.naturalHeight) continue;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      // CSS filter와 동일한 값 (global.css의 .hero-illustration filter와 sync)
+      ctx.filter = 'saturate(1.2) contrast(1.08)';
+      ctx.drawImage(img, 0, 0);
+      const dataUrl = canvas.toDataURL('image/png');
+
+      const originalSrc = img.src;
+      const originalStyleFilter = img.style.filter;
+
+      await new Promise((resolve) => {
+        const done = () => {
+          img.removeEventListener('load', done);
+          img.removeEventListener('error', done);
+          resolve();
+        };
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+        img.src = dataUrl;
+      });
+      // CSS filter는 drop-shadow만 남기고 saturate/contrast 제거 (이중 적용 방지)
+      img.style.filter = 'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35))';
+
+      restoreFns.push(() => {
+        img.src = originalSrc;
+        img.style.filter = originalStyleFilter;
+      });
+    } catch {
+      /* 개별 실패는 무시 */
+    }
+  }
+
+  return () => restoreFns.forEach((fn) => fn());
+}
+
 export default function ResultCard({ result, answers, onRestart }) {
   const { faceMatch, styleMatch, isPerfectMatch, userPhotoUrl } = result;
   const nickname = TYPE_NICKNAME[styleMatch.type] || '월드컵의 별';
@@ -108,6 +155,9 @@ export default function ResultCard({ result, answers, onRestart }) {
     await new Promise((r) => setTimeout(r, 60));
     await waitForImages(cardRef.current);
 
+    // CSS filter(saturate/contrast)를 일러스트 src에 미리 굽기
+    const restoreBakedFilter = await bakeFilterIntoIllustrations(cardRef.current);
+
     try {
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await Promise.race([
@@ -127,6 +177,7 @@ export default function ResultCard({ result, answers, onRestart }) {
       );
       return blob;
     } finally {
+      restoreBakedFilter();
       if (illustration) {
         illustration.style.maskImage = originalMask || '';
         illustration.style.webkitMaskImage = originalWebkitMask || '';
