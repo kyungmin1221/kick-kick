@@ -460,27 +460,9 @@ button {
   filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
   animation: fadeIn 0.4s ease;
 
-  /* === [옵션 B] 정사각 일러스트 격리 (롤백하려면 이 블록만 제거) === */
+  /* === 일러스트 모서리 — border-radius만 (마스크 제거로 흐림 방지) === */
   border-radius: 32px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-  -webkit-mask-image: radial-gradient(
-    ellipse 100% 100% at center,
-    #000 92%,
-    transparent 100%
-  );
-  mask-image: radial-gradient(
-    ellipse 100% 100% at center,
-    #000 92%,
-    transparent 100%
-  );
-  /* === /[옵션 B] === */
-}
-
-/* 캡처 중에는 mask-image 비활성화 (html-to-image 비호환).
-   border-radius는 그대로 적용돼서 저장 이미지에서도 둥근 모서리가 살아남. */
-.result-card[data-capturing='true'] .hero-illustration {
-  -webkit-mask-image: none;
-  mask-image: none;
 }
 
 /* 실제 선수 사진 영역 — 일러스트 유무에 따라 사이즈 바뀜 */
