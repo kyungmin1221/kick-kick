@@ -110,13 +110,18 @@ export default function ResultCard({ result, answers, onRestart }) {
 
     try {
       const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(cardRef.current, {
-        useCORS: true,
-        scale: 2,
-        backgroundColor: '#0a0e1a',
-        logging: false,
-        imageTimeout: 8000,
-      });
+      const canvas = await Promise.race([
+        html2canvas(cardRef.current, {
+          useCORS: true,
+          scale: 2,
+          backgroundColor: '#0a0e1a',
+          logging: false,
+          imageTimeout: 8000,
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('캡처 타임아웃 (10s)')), 10000),
+        ),
+      ]);
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, 'image/png'),
       );
