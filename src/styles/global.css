@@ -457,7 +457,11 @@ button {
   object-fit: contain;
   margin: 0 auto 14px;
   position: relative;
-  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
+  /* 일러스트마다 채도/콘트라스트 편차 보정 — 전체적으로 살짝 진하게 */
+  filter:
+    drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35))
+    saturate(1.2)
+    contrast(1.08);
   animation: fadeIn 0.4s ease;
 
   /* === 일러스트 모서리 — border-radius만 (마스크 제거로 흐림 방지) === */

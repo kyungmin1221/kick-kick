@@ -28,7 +28,7 @@ export const TYPE_NICKNAME = {
 export const COUNTRY_THEME = {
   '프랑스':     'linear-gradient(135deg, #002654 0%, #ED2939 100%)',
   '포르투갈':   'linear-gradient(135deg, #006633 0%, #FF0000 100%)',
-  '아르헨티나': 'linear-gradient(135deg, #6CACE4 0%, #2A5D8A 100%)',
+  '아르헨티나': 'linear-gradient(135deg, #2B6CB0 0%, #001F4D 100%)',
   '브라질':     'linear-gradient(135deg, #009C3B 0%, #D4A017 100%)',
   '노르웨이':   'linear-gradient(135deg, #BA0C2F 0%, #00205B 100%)',
   '잉글랜드':   'linear-gradient(135deg, #CE1124 0%, #5B0A12 100%)',
