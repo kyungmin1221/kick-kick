@@ -571,6 +571,54 @@ button {
   gap: 10px;
 }
 
+/* ---------- 이미지 저장 미리보기 모달 ---------- */
+.image-preview-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.2s ease;
+}
+.image-preview-inner {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.image-preview-img {
+  width: 100%;
+  max-height: 65vh;
+  object-fit: contain;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.image-preview-hint {
+  margin: 0;
+  color: #ffffff;
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.5;
+  background: rgba(245, 197, 24, 0.15);
+  border: 1px solid rgba(245, 197, 24, 0.35);
+  padding: 12px 18px;
+  border-radius: 12px;
+}
+.image-preview-hint b { color: var(--accent-yellow); }
+.image-preview-inner .btn-ghost {
+  width: auto;
+  padding: 10px 24px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 /* ---------- PlayerAvatar ---------- */
 .player-avatar {
   border-radius: 50%;
