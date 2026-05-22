@@ -1,12 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import PlayerAvatar from './PlayerAvatar.jsx';
 import AbilityRadar from './AbilityRadar.jsx';
 import { TYPE_NICKNAME, computeAbilities } from '../utils/abilities.js';
 import { defaultResultCopy, generateResultCopy } from '../utils/claudeApi.js';
 
+// 캡처 직전 카드 내 모든 <img>가 로드 완료될 때까지 대기.
+// (그렇지 않으면 캡처 결과에서 이미지가 누락되거나 레이아웃이 깨질 수 있음)
+function waitForImages(root) {
+  const imgs = Array.from(root.querySelectorAll('img'));
+  return Promise.all(
+    imgs.map((img) =>
+      img.complete && img.naturalWidth > 0
+        ? Promise.resolve()
+        : new Promise((resolve) => {
+            img.addEventListener('load', resolve, { once: true });
+            img.addEventListener('error', resolve, { once: true });
+          }),
+    ),
+  );
+}
+
 export default function ResultCard({ result, answers, onRestart }) {
   const { faceMatch, styleMatch, isPerfectMatch } = result;
   const nickname = TYPE_NICKNAME[styleMatch.type] || '월드컵의 별';
+  const cardRef = useRef(null);
+  const [busy, setBusy] = useState(null); // null | 'save' | 'share'
 
   const abilities = useMemo(
     () => computeAbilities(answers.map((a) => a.type)),
@@ -36,30 +54,91 @@ export default function ResultCard({ result, answers, onRestart }) {
     };
   }, [faceMatch, styleMatch, nickname, isPerfectMatch, fallbackCopy]);
 
-  const handleShare = async () => {
-    const text = isPerfectMatch
-      ? `🎯 나는 ${faceMatch.player.countryFlag} ${faceMatch.player.name}과 완벽 일치! 얼굴 ${faceMatch.similarity}% — "${nickname}" / KickKick`
-      : `${faceMatch.player.countryFlag} ${faceMatch.player.name} 얼굴 ${faceMatch.similarity}% + ${styleMatch.player.countryFlag} ${styleMatch.player.name} 스타일 — "${nickname}" / KickKick`;
+  const shareText = isPerfectMatch
+    ? `🎯 나는 ${faceMatch.player.countryFlag} ${faceMatch.player.name}과 완벽 일치! — "${nickname}" / KickKick`
+    : `${faceMatch.player.countryFlag} ${faceMatch.player.name} 얼굴 닮은꼴 + ${styleMatch.player.countryFlag} ${styleMatch.player.name} 스타일 — "${nickname}" / KickKick`;
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'KickKick 결과', text });
-        return;
-      } catch {
-        /* 취소 */
-      }
-    }
+  const captureImage = async () => {
+    if (!cardRef.current) return null;
+    // 캡처 전에 카드 안의 모든 이미지 로드 보장
+    await waitForImages(cardRef.current);
+    // 레이아웃 안정화를 위한 약간의 대기
+    await new Promise((r) => setTimeout(r, 80));
+    const { toBlob } = await import('html-to-image');
+    // 동일 출처 이미지를 두 번 한 번 더 거쳐 캐시 워밍 (간헐적 race 회피)
+    await toBlob(cardRef.current, {
+      pixelRatio: 1,
+      cacheBust: false,
+      backgroundColor: '#0a0e1a',
+    });
+    return await toBlob(cardRef.current, {
+      pixelRatio: 2,
+      cacheBust: false,
+      backgroundColor: '#0a0e1a',
+    });
+  };
+
+  const downloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSave = async () => {
+    if (busy) return;
+    setBusy('save');
     try {
-      await navigator.clipboard.writeText(text);
-      alert('결과가 클립보드에 복사됐어요!');
-    } catch {
-      alert(text);
+      const blob = await captureImage();
+      if (!blob) throw new Error('이미지 생성 실패');
+      downloadBlob(blob, `kickkick-${faceMatch.player.slug}.png`);
+    } catch (e) {
+      alert('이미지 저장 실패: ' + (e.message || e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleShare = async () => {
+    if (busy) return;
+    setBusy('share');
+    try {
+      const blob = await captureImage();
+      if (!blob) throw new Error('이미지 생성 실패');
+      const filename = `kickkick-${faceMatch.player.slug}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+
+      // Web Share API + 파일: 모바일에서 인스타/카톡 등 공유 시트 호출
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'KickKick 결과',
+            text: shareText,
+          });
+          return;
+        } catch (e) {
+          if (e.name === 'AbortError') return; // 사용자가 취소
+          // 그 외 에러는 폴백으로 진행
+        }
+      }
+      // 폴백: 이미지 다운로드 + 안내
+      downloadBlob(blob, filename);
+      alert('이 기기에서는 직접 공유가 안 돼서 이미지로 저장했어요. 사진앱에서 인스타 스토리로 올려보세요!');
+    } catch (e) {
+      alert('공유 실패: ' + (e.message || e));
+    } finally {
+      setBusy(null);
     }
   };
 
   return (
     <div className="screen result">
-      <div className="result-card">
+      <div className="result-card" ref={cardRef}>
         {isPerfectMatch && <div className="result-perfect-badge">🔥 완벽 일치</div>}
 
         <div className="result-nickname">"{nickname}"</div>
@@ -130,10 +209,13 @@ export default function ResultCard({ result, answers, onRestart }) {
       </div>
 
       <div className="result-actions">
-        <button className="btn-primary" onClick={handleShare}>
-          결과 공유하기
+        <button className="btn-primary" onClick={handleShare} disabled={busy !== null}>
+          {busy === 'share' ? '준비 중...' : '📤 공유하기'}
         </button>
-        <button className="btn-ghost" onClick={onRestart}>
+        <button className="btn-ghost" onClick={handleSave} disabled={busy !== null}>
+          {busy === 'save' ? '저장 중...' : '📥 사진 저장'}
+        </button>
+        <button className="btn-ghost" onClick={onRestart} disabled={busy !== null}>
           다시 해보기
         </button>
       </div>
