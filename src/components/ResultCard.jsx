@@ -98,7 +98,7 @@ export default function ResultCard({ result, answers, onRestart }) {
   const captureImage = async () => {
     if (!cardRef.current) return null;
 
-    // mask-image를 인라인 스타일로 직접 비활성화 (data 속성보다 확실)
+    // mask-image를 인라인 스타일로 직접 비활성화 (html-to-image 비호환)
     const illustration = cardRef.current.querySelector('.hero-illustration');
     const originalMask = illustration?.style.maskImage;
     const originalWebkitMask = illustration?.style.webkitMaskImage;
@@ -111,24 +111,17 @@ export default function ResultCard({ result, answers, onRestart }) {
     const wasRevealed = easterRevealed;
     if (faceMatch && !wasRevealed) setEasterRevealed(true);
 
-    // React state commit + 이미지 로드 안정화 — 모바일은 더 넉넉히
-    await new Promise((r) => setTimeout(r, 120));
+    // 가능한 빠르게 — iOS Safari의 user gesture window를 넘기면 share API가 막힘
+    await new Promise((r) => setTimeout(r, 40));
     await waitForImages(cardRef.current);
-    await new Promise((r) => setTimeout(r, 150));
 
     const { toBlob } = await import('html-to-image');
-    const options = {
-      cacheBust: true, // iOS Safari에서 이미지 누락 회피
-      backgroundColor: '#0a0e1a',
-    };
-
     try {
-      // iOS Safari 이미지 안정화를 위해 워밍업 2회 + 본 캡처
-      await toBlob(cardRef.current, { ...options, pixelRatio: 1 });
-      await new Promise((r) => setTimeout(r, 80));
-      await toBlob(cardRef.current, { ...options, pixelRatio: 1 });
-      await new Promise((r) => setTimeout(r, 80));
-      const blob = await toBlob(cardRef.current, { ...options, pixelRatio: 2 });
+      const blob = await toBlob(cardRef.current, {
+        pixelRatio: 2,
+        cacheBust: false,
+        backgroundColor: '#0a0e1a',
+      });
       return blob;
     } finally {
       if (illustration) {
