@@ -27,11 +27,10 @@ async function waitForImages(root) {
         : new Promise((resolve) => {
             img.addEventListener('load', resolve, { once: true });
             img.addEventListener('error', resolve, { once: true });
-          }),
-    ),
+          })
+    )
   );
 }
-
 
 export default function ResultCard({ result, answers, onRestart }) {
   const { faceMatch, styleMatch, isPerfectMatch, userPhotoUrl } = result;
@@ -103,10 +102,17 @@ export default function ResultCard({ result, answers, onRestart }) {
     cardRef.current.dataset.capturing = 'true';
 
     const wasRevealed = easterRevealed;
-    if (faceMatch && !wasRevealed) setEasterRevealed(true);
+    if (faceMatch && !wasRevealed) {
+      setEasterRevealed(true);
+      // 💡 중요: 리렌더링과 DOM 안정화를 위해 대기 시간을 60ms에서 250ms 정도로 늘려줍니다.
+      // 대중 스마트폰에서 이미지 리로드가 끝날 수 있는 충분한 숨통을 틔워줍니다.
+      await new Promise((r) => setTimeout(r, 250));
+    } else {
+      // 이스터에그를 이미 열어둔 상태였어도 100ms는 기다려주는 게 안전합니다.
+      await new Promise((r) => setTimeout(r, 100));
+    }
 
-    // React commit + 이스터에그 img mount 대기
-    await new Promise((r) => setTimeout(r, 60));
+    // 모든 이미지(특히 일러스트와 이스터에그 이미지)가 완벽히 로드되었는지 최종 확인
     await waitForImages(cardRef.current);
 
     try {
@@ -114,17 +120,18 @@ export default function ResultCard({ result, answers, onRestart }) {
       const canvas = await Promise.race([
         html2canvas(cardRef.current, {
           useCORS: true,
-          scale: 2,
+          allowTaint: true, // 💡 CORS 이미지 유실 방지 보완
+          scale: 2, // 2배 선명하게 굽기
           backgroundColor: '#0a0e1a',
           logging: false,
           imageTimeout: 8000,
         }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('캡처 타임아웃 (10s)')), 10000),
+          setTimeout(() => reject(new Error('캡처 타임아웃 (10s)')), 10000)
         ),
       ]);
       const blob = await new Promise((resolve) =>
-        canvas.toBlob(resolve, 'image/png'),
+        canvas.toBlob(resolve, 'image/png')
       );
       return blob;
     } finally {
