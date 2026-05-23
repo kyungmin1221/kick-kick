@@ -306,7 +306,7 @@ export default function ResultCard({ result, answers, onRestart }) {
 
       <div className="result-actions">
         <button className="btn-primary" onClick={handleShare} disabled={busy}>
-          {busy ? '준비 중...' : '📸 인스타 공유하기'}
+          {busy ? '준비 중...' : '📸 공유하기'}
         </button>
         <button className="btn-ghost" onClick={onRestart} disabled={busy}>
           🔄 다시 하기
