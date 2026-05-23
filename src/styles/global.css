@@ -457,12 +457,14 @@ button {
   object-fit: contain;
   margin: 0 auto 14px;
   position: relative;
-  /* 일러스트마다 채도/콘트라스트 편차 보정 — 전체적으로 살짝 진하게 */
-  filter:
-    drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35))
-    saturate(1.2)
-    contrast(1.08);
-  animation: fadeIn 0.4s ease;
+
+  /* 💡 [수정] 스케일 업 시 흐림을 유발하는 drop-shadow와 contrast 제거 */
+  /* saturate만 남겨서 일러스트 고유의 채도만 살짝 보정합니다. */
+  filter: saturate(1.2); 
+  
+  /* 💡 [수정] 캡처 타이밍 엇박자를 막기 위해 웹 애니메이션 제거 */
+  /* 인스타 스토리 감성은 JS 캡처 로직에서 안전하게 제어합니다. */
+  animation: none; 
 
   /* === 일러스트 모서리 — border-radius만 (마스크 제거로 흐림 방지) === */
   border-radius: 32px;

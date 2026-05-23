@@ -91,28 +91,35 @@ export default function ResultCard({ result, answers, onRestart }) {
   const captureImage = async () => {
     if (!cardRef.current) return null;
 
-    // mask-image는 html2canvas도 지원 못함 — 캡처 동안만 비활성화
+    // 1. 강제로 일러스트의 투명도를 100%(1)로 고정하고, 캡처 전용 그림자를 주입
     const illustration = cardRef.current.querySelector('.hero-illustration');
+
     const originalMask = illustration?.style.maskImage;
     const originalWebkitMask = illustration?.style.webkitMaskImage;
+    // CSS에서 제거한 애니메이션과 그림자를 여기서 제어
+    const originalOpacity = illustration?.style.opacity;
+    const originalFilter = illustration?.style.filter;
+
     if (illustration) {
       illustration.style.maskImage = 'none';
       illustration.style.webkitMaskImage = 'none';
+
+      // 💡 [핵심 추가] 캡처 도중 투명도가 흐려지는 현상 완벽 방어
+      illustration.style.opacity = '1';
+
+      // 💡 [핵심 추가] 인스타 스토리 감성! 캡처 순간에만 안전하게 고화질 그림자 주입
+      // saturate(1.2)는 유지하되, contrast를 걷어내고 힙한 drop-shadow를 직접 작성
+      illustration.style.filter =
+        'saturate(1.2) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.45))';
     }
+
     cardRef.current.dataset.capturing = 'true';
 
     const wasRevealed = easterRevealed;
-    if (faceMatch && !wasRevealed) {
-      setEasterRevealed(true);
-      // 💡 중요: 리렌더링과 DOM 안정화를 위해 대기 시간을 60ms에서 250ms 정도로 늘려줍니다.
-      // 대중 스마트폰에서 이미지 리로드가 끝날 수 있는 충분한 숨통을 틔워줍니다.
-      await new Promise((r) => setTimeout(r, 250));
-    } else {
-      // 이스터에그를 이미 열어둔 상태였어도 100ms는 기다려주는 게 안전합니다.
-      await new Promise((r) => setTimeout(r, 100));
-    }
+    if (faceMatch && !wasRevealed) setEasterRevealed(true);
 
-    // 모든 이미지(특히 일러스트와 이스터에그 이미지)가 완벽히 로드되었는지 최종 확인
+    // DOM 안정화를 위해 대기 시간을 200ms로 상향 조정
+    await new Promise((r) => setTimeout(r, 200));
     await waitForImages(cardRef.current);
 
     try {
@@ -120,11 +127,10 @@ export default function ResultCard({ result, answers, onRestart }) {
       const canvas = await Promise.race([
         html2canvas(cardRef.current, {
           useCORS: true,
-          allowTaint: true, // 💡 CORS 이미지 유실 방지 보완
-          scale: 2, // 2배 선명하게 굽기
+          scale: 3, // 💡 화질을 2배에서 3배 선명하게 상향!
           backgroundColor: '#0a0e1a',
           logging: false,
-          imageTimeout: 8000,
+          imageTimeout: 10000,
         }),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('캡처 타임아웃 (10s)')), 10000)
@@ -135,10 +141,14 @@ export default function ResultCard({ result, answers, onRestart }) {
       );
       return blob;
     } finally {
+      // 캡처가 끝나면 원래 스타일로 복원
       if (illustration) {
         illustration.style.maskImage = originalMask || '';
         illustration.style.webkitMaskImage = originalWebkitMask || '';
+        illustration.style.opacity = originalOpacity || '';
+        illustration.style.filter = originalFilter || '';
       }
+
       if (cardRef.current) delete cardRef.current.dataset.capturing;
       if (!wasRevealed) setEasterRevealed(false);
     }
