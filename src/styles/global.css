@@ -867,6 +867,15 @@ button {
   letter-spacing: 0.05em;
 }
 
+.result-cheer {
+  margin: 16px 0 12px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f5c518;
+  letter-spacing: -0.01em;
+}
+
 .result-actions {
   display: flex;
   flex-direction: column;

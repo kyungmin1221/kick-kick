@@ -2,6 +2,13 @@ import { useCallback, useState } from 'react';
 import players from '../data/players_descriptors.json';
 import { extractDescriptor, fileToImage, findBestMatch, loadModels } from '../utils/faceApi.js';
 
+// 플레이 스타일 매칭은 한국 선수 풀에서만 — 일반 대중 인지도/공유 동기 고려
+const koreanPlayers = players.filter((p) => p.country === '한국');
+const pickStyleMatchPlayer = (dominantType) =>
+  koreanPlayers.find((p) => p.type === dominantType) ||
+  koreanPlayers[0] ||
+  players[0];
+
 // 결과 구조:
 // {
 //   faceMatch: { player, similarity, mode },   // 얼굴 기준 닮은꼴
@@ -26,8 +33,7 @@ export function useFaceMatch() {
     try {
       userPhotoUrl = URL.createObjectURL(file);
 
-      const styleMatchPlayer =
-        players.find((p) => p.type === dominantType) || players[0];
+      const styleMatchPlayer = pickStyleMatchPlayer(dominantType);
       const styleMatch = { player: styleMatchPlayer, type: dominantType };
 
       const hasDescriptors = players.some(
@@ -91,8 +97,7 @@ export function useFaceMatch() {
     setResult(null);
     try {
       await new Promise((r) => setTimeout(r, 700)); // 로딩 효과
-      const styleMatchPlayer =
-        players.find((p) => p.type === dominantType) || players[0];
+      const styleMatchPlayer = pickStyleMatchPlayer(dominantType);
       setResult({
         faceMatch: null, // 사진을 안 올렸으므로 얼굴 매칭 없음
         styleMatch: { player: styleMatchPlayer, type: dominantType },

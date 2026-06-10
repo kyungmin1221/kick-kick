@@ -109,11 +109,7 @@ export default function App() {
         {stage === 'upload' && <UploadScreen onSubmit={handleUpload} />}
         {stage === 'loading' && <LoadingScreen />}
         {stage === 'result' && face.result && (
-          <ResultCard
-            result={face.result}
-            answers={quiz.answers}
-            onRestart={handleRestart}
-          />
+          <ResultCard result={face.result} onRestart={handleRestart} />
         )}
       </main>
       <footer className="app-footer">

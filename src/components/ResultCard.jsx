@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PlayerAvatar from './PlayerAvatar.jsx';
 import PlayerIllustration from './PlayerIllustration.jsx';
-import AbilityRadar from './AbilityRadar.jsx';
 import {
   COUNTRY_THEME,
   TYPE_NICKNAME,
   TYPE_THEME,
-  computeAbilities,
   getFunHashtags,
 } from '../utils/abilities.js';
 import { defaultResultCopy, generateResultCopy } from '../utils/claudeApi.js';
@@ -32,7 +30,7 @@ async function waitForImages(root) {
   );
 }
 
-export default function ResultCard({ result, answers, onRestart }) {
+export default function ResultCard({ result, onRestart }) {
   const { faceMatch, styleMatch, isPerfectMatch, userPhotoUrl } = result;
   const nickname = TYPE_NICKNAME[styleMatch.type] || '월드컵의 별';
   const theme = TYPE_THEME[styleMatch.type] || TYPE_THEME.midfielder;
@@ -51,11 +49,6 @@ export default function ResultCard({ result, answers, onRestart }) {
   useEffect(() => {
     setHasIllustration(false);
   }, [styleMatch.player.slug]);
-
-  const abilities = useMemo(
-    () => computeAbilities(answers.map((a) => a.type)),
-    [answers]
-  );
 
   const fallbackCopy = useMemo(
     () =>
@@ -244,16 +237,7 @@ export default function ResultCard({ result, answers, onRestart }) {
           </div>
         </div>
 
-        {/* ===== 능력치 ===== */}
-        <div className="result-section">
-          <div className="result-section-title">⚡ 나의 능력치</div>
-          <div className="result-radar-wrap">
-            <AbilityRadar scores={abilities} />
-          </div>
-        </div>
-
         {/* ===== 카피 ===== */}
-        <div className="result-analysis-label">✨ 당신을 위한 스페셜 분석</div>
         <p className="result-description">
           {loadingCopy && copy === fallbackCopy
             ? '결과 설명을 만드는 중...'
@@ -303,6 +287,10 @@ export default function ResultCard({ result, answers, onRestart }) {
 
         <p className="result-disclaimer">⚽ 친구에게 공유해봐요!</p>
       </div>
+
+      <p className="result-cheer">
+        🇰🇷 친구들과 공유하고 대한민국을 함께 응원해요!
+      </p>
 
       <div className="result-actions">
         <button className="btn-primary" onClick={handleShare} disabled={busy}>

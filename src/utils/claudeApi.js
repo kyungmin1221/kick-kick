@@ -128,14 +128,14 @@ export function defaultResultCopy({
 
   // 1. 사진 모드 + 관상과 성향 완벽 일치
   if (faceMatch && isPerfectMatch) {
-    return `외모 분위기부터 플레이 스타일까지 완전히 ${styleP.name}를 빼닮았네요. 싱크로율 100%에 어울리는 진정한 "${nickname}" 카드가 발급되었습니다.`;
+    return `외모부터 플레이 스타일까지 완전히 ${styleP.name}를 빼닮았네요. 싱크로율 100%에 어울리는 진정한 "${nickname}" 카드가 발급되었습니다.`;
   }
 
   // 2. 사진 모드 + 얼굴(하키미)과 성향(메시)이 다른 경우
   if (faceMatch && faceMatch.player.slug !== styleP.slug) {
-    return `내 비주얼과 플레이 성향이 믹스된 유니크한 캐릭터 카드입니다. 외모는 ${faceMatch.player.country} 국대 특유의 단단한 아우라가 느껴지는데, 내면은 ${typeAdj} ${styleP.name}의 감각을 장착했군요. 묘하게 어울리는 반전 매력이 있습니다! (내 얼굴 속 숨겨진 선수는 👇 아래 탭에서 확인)`;
+    return `${typeAdj} ${styleP.name}의 플레이 스타일이 느껴지는 당신! 그라운드 위에서 남다른 존재감이 빛날 것 같아요.`;
   }
 
   // 3. 사진 없이 성향만 본 유저
-  return `${typeAdj} ${styleP.name}의 심장을 장착한 당신! 그라운드 위에서 남다른 존재감을 보여주는 확실한 지배자 스타일입니다.`;
+  return `${typeAdj} ${styleP.name}의 스타일과 비슷한 당신! 경기장에서 남다른 존재감을 보여줄 것 같아요!`;
 }
